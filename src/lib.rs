@@ -1,10 +1,10 @@
 pub mod chip8 {
+    pub const DISPLAY_HEIGHT: usize = 32;
+    pub const DISPLAY_WIDTH: usize = 64;
+
     const MEMORY_SIZE: usize = 4096;
     const V_SIZE: usize = 16;
-    const STACK_SIZE: usize = 16;
-
-    const DISPLAY_WIDTH: usize = 64;
-    const DISPLAY_HEIGHT: usize = 32;
+    const STACK_SIZE: usize = 16;    
     const SPRITES: [u8; 16 * 5] = [
         0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
         0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -54,6 +54,13 @@ pub mod chip8 {
             // Decode
             // Execute
         }
+
+        pub fn pixel_at(&self, x: usize, y: usize) -> bool {
+            assert!(x < DISPLAY_WIDTH);
+            assert!(y < DISPLAY_HEIGHT);
+
+            self.display[DISPLAY_HEIGHT - y - 1][x]
+        }
     }
 
     #[cfg(test)]
@@ -61,6 +68,35 @@ pub mod chip8 {
         use super::*;
 
         #[test]
-        fn test() {}
+        fn constructor() {
+            let chip8 = Emulator::new();
+            // Program counter
+            assert_eq!(
+                chip8.program_counter, 0x200,
+                "Program counter should be set to 0x200 rather than 0x{:X}",
+                chip8.program_counter
+            );
+            // Memory
+            assert_eq!(chip8.memory.len(), 4096);
+            assert_eq!(chip8.display.len(), 32);
+            assert_eq!(chip8.display[0].len(), 64);
+            // V
+            assert_eq!(chip8.v.len(), 16);
+            for index in 0..16 {
+                assert_eq!(chip8.v[index], 0);
+            }
+            // Stack
+            assert_eq!(chip8.stack_pointer, 0);
+            assert_eq!(chip8.stack.len(), 16);
+            for index in 0..16 {
+                assert_eq!(chip8.stack[index], 0);
+            }
+            // Display
+            for x in 0..64 {
+                for y in 0..32 {
+                    assert_eq!(chip8.pixel_at(x, y), false);
+                }
+            }
+        }
     }
 }
