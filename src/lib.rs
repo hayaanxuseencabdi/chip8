@@ -112,11 +112,11 @@ impl Emulator {
 
     fn sub_vx_vy(&mut self, x: usize, y: usize) {}
 
-    fn shr_vx_vy(&mut self, x: usize, y: usize) {}
+    fn shr_vx(&mut self, x: usize) {}
 
     fn subn_vx_vy(&mut self, x: usize, y: usize) {}
 
-    fn shl_vx_vy(&mut self, x: usize, y: usize) {}
+    fn shl_vx(&mut self, x: usize) {}
 
     fn sne_vx_vy(&mut self, x: usize, y: usize) {}
 
@@ -157,7 +157,7 @@ mod tests {
     use super::Emulator;
 
     #[test]
-    fn test_constructor() {
+    fn constructor() {
         let chip8 = Emulator::new();
 
         // Program counter
@@ -193,14 +193,14 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_sys_addr() {
+    fn sys_addr() {
         let mut chip8 = Emulator::new();
 
         chip8.sys_addr(0);
     }
 
     #[test]
-    fn test_cls() {
+    fn cls() {
         let mut chip8 = Emulator::new();
         for row in chip8.display.iter_mut() {
             for pixel in row.iter_mut() {
@@ -217,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ret() {
+    fn ret() {
         let mut chip8 = Emulator::new();
         // Push old program counter onto stack
         let old_address: u16 = chip8.stack[chip8.stack_pointer as usize];
@@ -233,7 +233,7 @@ mod tests {
     }
 
     #[test]
-    fn test_jp_addr() {
+    fn jp_addr() {
         let mut chip8 = Emulator::new();
         let nnn: u16 = 0xFD0;
 
@@ -243,7 +243,7 @@ mod tests {
     }
 
     #[test]
-    fn test_call_addr() {
+    fn call_addr() {
         let mut chip8 = Emulator::new();
         let nnn: u16 = 0x2E6;
 
@@ -255,7 +255,7 @@ mod tests {
     }
 
     #[test]
-    fn test_se_vx_byte_skip() {
+    fn se_vx_byte_skip() {
         let mut chip8 = Emulator::new();
         let x: usize = 0x0;
         let kk: u8 = 0x00;
@@ -268,7 +268,7 @@ mod tests {
     }
 
     #[test]
-    fn test_se_vx_byte_no_skip() {
+    fn se_vx_byte_no_skip() {
         let mut chip8 = Emulator::new();
         let x: usize = 0x0;
         let kk: u8 = 0x04;
@@ -281,7 +281,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sne_vx_byte_skip() {
+    fn sne_vx_byte_skip() {
         let mut chip8 = Emulator::new();
         let x: usize = 0x0;
         let kk: u8 = 0x04;
@@ -294,7 +294,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sne_vx_byte_no_skip() {
+    fn sne_vx_byte_no_skip() {
         let mut chip8 = Emulator::new();
         let x: usize = 0x0;
         let kk: u8 = 0x00;
@@ -307,7 +307,7 @@ mod tests {
     }
 
     #[test]
-    fn test_se_vx_vy_skip() {
+    fn se_vx_vy_skip() {
         let mut chip8 = Emulator::new();
         let x: usize = 0x0;
         let y: usize = 0x1;
@@ -320,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn test_se_vx_vy_no_skip() {
+    fn se_vx_vy_no_skip() {
         let mut chip8 = Emulator::new();
         let x: usize = 0x0;
         let y: usize = 0x1;
@@ -331,5 +331,242 @@ mod tests {
         chip8.se_vx_vy(x, y);
 
         assert_eq!(chip8.program_counter, 0x200);
+    }
+
+    #[test]
+    fn ld_vx_byte() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 1;
+        let kk: u8 = 4;
+
+        assert_ne!(chip8.v[x], kk);
+
+        chip8.ld_vx_byte(x, kk);
+
+        assert_eq!(chip8.v[x], kk);
+    }
+
+    #[test]
+    fn add_vx_byte() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 4;
+        let kk: u8 = 2;
+        chip8.v[x] = 5;
+
+        chip8.add_vx_byte(x, kk);
+
+        assert_eq!(chip8.v[x], 5 + kk);
+    }
+
+    #[test]
+    fn ld_vx_vy() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 1;
+        let y: usize = 1;
+        chip8.v[x] = 2;
+        chip8.v[y] = 4;
+
+        assert_ne!(chip8.v[x], chip8.v[y]);
+
+        chip8.ld_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], chip8.v[y]);
+    }
+
+    #[test]
+    fn or_vx_vy() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 1;
+        let y: usize = 2;
+        chip8.v[x] = 0b1100_0100;
+        chip8.v[y] = 0b0111_0000;
+
+        chip8.or_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 0b1111_0100);
+    }
+
+    #[test]
+    fn and_vx_vy() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 2;
+        let y: usize = 0;
+        chip8.v[x] = 0b1101_1001;
+        chip8.v[y] = 0b0101_0010;
+
+        chip8.and_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 0b0101_0000);
+    }
+
+    #[test]
+    fn xor_vx_vy() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 2;
+        let y: usize = 8;
+        chip8.v[x] = 0b1101_1001;
+        chip8.v[y] = 0b0101_0010;
+
+        chip8.and_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 0b1000_1011);
+    }
+
+    #[test]
+    fn add_vx_vy_carry() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 1;
+        let y: usize = 0;
+        chip8.v[x] = 255;
+        chip8.v[y] = 127;
+
+        chip8.add_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 126);
+        assert_eq!(chip8.v[0xF], 0x01);
+    }
+
+    #[test]
+    fn add_vx_vy_no_carry() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 5;
+        let y: usize = 1;
+        chip8.v[x] = 128;
+        chip8.v[y] = 127;
+
+        chip8.add_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 255);
+        assert_eq!(chip8.v[0xF], 0x00);
+    }
+
+    #[test]
+    fn sub_vx_vy_borrow() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 1;
+        let y: usize = 6;
+        chip8.v[x] = 100;
+        chip8.v[y] = 55;
+
+        chip8.sub_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 45);
+        assert_eq!(chip8.v[0xF], 0x00);
+    }
+
+    #[test]
+    fn sub_vx_vy_no_borrow() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 2;
+        let y: usize = 0;
+        chip8.v[x] = 55;
+        chip8.v[y] = 100;
+
+        chip8.sub_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 211);
+        assert_eq!(chip8.v[0xF], 0x01);
+    }
+
+    #[test]
+    fn shr_vx_lsb_is_set() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 0;
+        chip8.v[x] = 0b1011_0101;
+
+        chip8.shr_vx(x);
+
+        assert_eq!(chip8.v[x], 0b0101_1010);
+        assert_eq!(chip8.v[0xF], 0x01);
+    }
+
+    #[test]
+    fn shr_vx_lsb_is_not_set() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 0;
+        chip8.v[x] = 0b0110_0100;
+
+        chip8.shr_vx(x);
+
+        assert_eq!(chip8.v[x], 0b0011_0010);
+        assert_eq!(chip8.v[0xF], 0x00);
+    }
+
+    #[test]
+    fn subn_vx_vy_borrow() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 1;
+        let y: usize = 6;
+        chip8.v[x] = 100;
+        chip8.v[y] = 55;
+
+        chip8.subn_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 211);
+        assert_eq!(chip8.v[0xF], 0x00);
+    }
+
+    #[test]
+    fn subn_vx_vy_no_borrow() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 2;
+        let y: usize = 0;
+        chip8.v[x] = 20;
+        chip8.v[y] = 55;
+
+        chip8.subn_vx_vy(x, y);
+
+        assert_eq!(chip8.v[x], 35);
+        assert_eq!(chip8.v[0xF], 0x01);
+    }
+
+    #[test]
+    fn shl_vx_msb_is_set() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 0;
+        chip8.v[x] = 0b1011_0101;
+
+        chip8.shl_vx(x);
+
+        assert_eq!(chip8.v[x], 0b0110_1010);
+        assert_eq!(chip8.v[0xF], 0x01);
+    }
+
+    #[test]
+    fn shl_vx_msb_is_not_set() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 0;
+        chip8.v[x] = 0b0110_0100;
+
+        chip8.shl_vx(x);
+
+        assert_eq!(chip8.v[x], 0b1100_1000);
+        assert_eq!(chip8.v[0xF], 0x00);
+    }
+
+    #[test]
+    fn sne_vx_vy_skip() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 3;
+        let y: usize = 4;
+        chip8.v[x] = 2;
+        chip8.v[y] = 0;
+
+        chip8.sne_vx_vy(x, y);
+
+        assert_eq!(chip8.program_counter, 2);
+    }
+
+    #[test]
+    fn sne_vx_vy_no_skip() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 0;
+        let y: usize = 8;
+        chip8.v[x] = 0;
+        chip8.v[y] = 0;
+
+        chip8.sne_vx_vy(x, y);
+
+        assert_eq!(chip8.program_counter, 0);
     }
 }
