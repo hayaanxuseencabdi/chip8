@@ -569,4 +569,58 @@ mod tests {
 
         assert_eq!(chip8.program_counter, 0);
     }
+
+    #[test]
+    fn ld_i_addr() {
+        let mut chip8 = Emulator::new();
+        let nnn: u16 = 0xF3B;
+
+        chip8.ld_i_addr(nnn);
+
+        assert_eq!(chip8.i, 0xF3B);
+    }
+
+    #[test]
+    fn jp_v0_addr() {
+        let mut chip8 = Emulator::new();
+        chip8.v[0x0] = 0x0F0;
+        let nnn: u16 = 0x203;
+
+        chip8.jp_v0_addr(nnn);
+
+        assert_eq!(chip8.program_counter, 0x2F3);
+    }
+
+    #[test]
+    fn ld_vx_dt() {}
+
+    #[test]
+    fn ld_dt_vx() {}
+
+    #[test]
+    fn ld_st_vx() {}
+
+    #[test]
+    fn add_i_vx() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 3;
+        chip8.v[x] = 10;
+        chip8.i = 1 as u16;
+
+        chip8.add_i_vx(x);
+
+        assert_eq!(chip8.i, 13);
+    }
+
+    #[test]
+    fn ld_f_vx() {}
+
+    #[test]
+    fn ld_b_vx() {}
+
+    #[test]
+    fn ld_i_vx() {}
+
+    #[test]
+    fn ld_vx_i() {}
 }
