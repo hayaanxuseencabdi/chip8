@@ -171,7 +171,7 @@ impl Emulator {
     }
 
     fn shl_vx(&mut self, x: usize) {
-        self.v[0xF] = self.v[x] & 0b1000_0000;
+        self.v[0xF] = (self.v[x] & 0b1000_0000) >> 7;
         self.v[x] = self.v[x] << 1;
     }
 
@@ -626,7 +626,7 @@ mod tests {
 
         chip8.shl_vx(x);
 
-        assert_eq!(chip8.v[x], 0b1010_1010);
+        assert_eq!(chip8.v[x], 0b0110_1010);
         assert_eq!(chip8.v[0xF], 0x01);
     }
 
