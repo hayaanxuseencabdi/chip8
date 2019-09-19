@@ -161,7 +161,7 @@ impl Emulator {
 
     fn shr_vx(&mut self, x: usize) {
         self.v[0xF] = self.v[x] & 0b0000_0001;
-        self.v[x] = self.v[x].wrapping_shr(1);
+        self.v[x] = self.v[x] >> 1;
     }
 
     fn subn_vx_vy(&mut self, x: usize, y: usize) {
@@ -172,7 +172,7 @@ impl Emulator {
 
     fn shl_vx(&mut self, x: usize) {
         self.v[0xF] = self.v[x] & 0b1000_0000;
-        self.v[x] = self.v[x].wrapping_shl(1);
+        self.v[x] = self.v[x] << 1;
     }
 
     fn sne_vx_vy(&mut self, x: usize, y: usize) {
