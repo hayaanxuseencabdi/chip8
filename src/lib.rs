@@ -38,7 +38,7 @@ pub struct Emulator {
 impl Emulator {
     pub fn new() -> Self {
         let mut memory = [0; MEMORY_SIZE];
-        memory[..0x50].clone_from_slice(&SPRITES[..0x50]);
+        memory[..0x50].copy_from_slice(&SPRITES[..0x50]);
 
         Emulator {
             program_counter: 0x200,
@@ -82,73 +82,171 @@ impl Emulator {
         unimplemented!("The instruction [0nnn - SYS addr] has not been implemented.");
     }
 
-    fn cls(&mut self) {}
+    fn cls(&mut self) {
+        for row in self.display.iter_mut() {
+            for pixel in row.iter_mut() {
+                *pixel = false;
+            }
+        }
+    }
 
-    fn ret(&mut self) {}
+    fn ret(&mut self) {
+        self.stack_pointer -= 1;
+        self.program_counter = self.stack[self.stack_pointer as usize];
+    }
 
-    fn jp_addr(&mut self, nnn: u16) {}
+    fn jp_addr(&mut self, nnn: u16) {
+        self.program_counter = nnn;
+    }
 
-    fn call_addr(&mut self, nnn: u16) {}
+    fn call_addr(&mut self, nnn: u16) {
+        self.stack[self.stack_pointer as usize] = self.program_counter;
+        self.stack_pointer += 1;
+        self.program_counter = nnn;
+    }
 
-    fn se_vx_byte(&mut self, x: usize, kk: u8) {}
+    fn se_vx_byte(&mut self, x: usize, kk: u8) {
+        if self.v[x] == kk {
+            self.program_counter += 2;
+        }
+    }
 
-    fn sne_vx_byte(&mut self, x: usize, kk: u8) {}
+    fn sne_vx_byte(&mut self, x: usize, kk: u8) {
+        if self.v[x] != kk {
+            self.program_counter += 2;
+        }
+    }
 
-    fn se_vx_vy(&mut self, x: usize, y: usize) {}
+    fn se_vx_vy(&mut self, x: usize, y: usize) {
+        if self.v[x] == self.v[y] {
+            self.program_counter += 2;
+        }
+    }
 
-    fn ld_vx_byte(&mut self, x: usize, kk: u8) {}
+    fn ld_vx_byte(&mut self, x: usize, kk: u8) {
+        self.v[x] = kk;
+    }
 
-    fn add_vx_byte(&mut self, x: usize, kk: u8) {}
+    fn add_vx_byte(&mut self, x: usize, kk: u8) {
+        self.v[x] += kk;
+    }
 
-    fn ld_vx_vy(&mut self, x: usize, y: usize) {}
+    fn ld_vx_vy(&mut self, x: usize, y: usize) {
+        self.v[x] = self.v[y];
+    }
 
-    fn or_vx_vy(&mut self, x: usize, y: usize) {}
+    fn or_vx_vy(&mut self, x: usize, y: usize) {
+        self.v[x] |= self.v[y];
+    }
 
-    fn and_vx_vy(&mut self, x: usize, y: usize) {}
+    fn and_vx_vy(&mut self, x: usize, y: usize) {
+        self.v[x] &= self.v[y];
+    }
 
-    fn xor_vx_vy(&mut self, x: usize, y: usize) {}
+    fn xor_vx_vy(&mut self, x: usize, y: usize) {
+        self.v[x] ^= self.v[y];
+    }
 
-    fn add_vx_vy(&mut self, x: usize, y: usize) {}
+    fn add_vx_vy(&mut self, x: usize, y: usize) {
+        let (sum, overflow) = self.v[x].overflowing_add(self.v[y]);
+        self.v[x] = sum;
+        self.v[0xF] = overflow as u8;
+    }
 
-    fn sub_vx_vy(&mut self, x: usize, y: usize) {}
+    fn sub_vx_vy(&mut self, x: usize, y: usize) {
+        let (difference, underflow) = self.v[x].overflowing_sub(self.v[y]);
+        self.v[x] = difference;
+        self.v[0xF] = !underflow as u8;
+    }
 
-    fn shr_vx(&mut self, x: usize) {}
+    fn shr_vx(&mut self, x: usize) {
+        self.v[0xF] = self.v[x] & 0b0000_0001;
+        self.v[x] = self.v[x].wrapping_shr(1);
+    }
 
-    fn subn_vx_vy(&mut self, x: usize, y: usize) {}
+    fn subn_vx_vy(&mut self, x: usize, y: usize) {
+        let (difference, underflow) = self.v[y].overflowing_sub(self.v[x]);
+        self.v[x] = difference;
+        self.v[0xF] = !underflow as u8;
+    }
 
-    fn shl_vx(&mut self, x: usize) {}
+    fn shl_vx(&mut self, x: usize) {
+        self.v[0xF] = self.v[x] & 0b1000_0000;
+        self.v[x] = self.v[x].wrapping_shl(1);
+    }
 
-    fn sne_vx_vy(&mut self, x: usize, y: usize) {}
+    fn sne_vx_vy(&mut self, x: usize, y: usize) {
+        if self.v[x] != self.v[y] {
+            self.program_counter += 2;
+        }
+    }
 
-    fn ld_i_addr(&mut self, nnn: u16) {}
+    fn ld_i_addr(&mut self, nnn: u16) {
+        self.i = nnn;
+    }
 
-    fn jp_v0_addr(&mut self, nnn: u16) {}
+    fn jp_v0_addr(&mut self, nnn: u16) {
+        self.program_counter = nnn + (self.v[0x0] as u16);
+    }
 
-    fn rnd_vx_byte(&mut self, x: usize, kk: u8) {}
+    fn rnd_vx_byte(&mut self, x: usize, kk: u8) {
+        unimplemented!();
+    }
 
-    fn drw_vx_vy_nibble(&mut self, x: usize, y: usize) {}
+    fn drw_vx_vy_nibble(&mut self, x: usize, y: usize) {
+        unimplemented!();
+    }
 
-    fn skp_vx(&mut self, x: usize) {}
+    fn skp_vx(&mut self, x: usize) {
+        unimplemented!();
+    }
 
-    fn sknp_vx(&mut self, x: usize) {}
+    fn sknp_vx(&mut self, x: usize) {
+        unimplemented!();
+    }
 
-    fn ld_vx_dt(&mut self, x: usize) {}
+    fn ld_vx_dt(&mut self, x: usize) {
+        unimplemented!();
+    }
 
-    fn ld_vx_k(&mut self, x: usize) {}
+    fn ld_vx_k(&mut self, x: usize) {
+        unimplemented!();
+    }
 
-    fn ld_dt_vx(&mut self, x: usize) {}
+    fn ld_dt_vx(&mut self, x: usize) {
+        unimplemented!();
+    }
 
-    fn ld_st_vx(&mut self, x: usize) {}
+    fn ld_st_vx(&mut self, x: usize) {
+        unimplemented!();
+    }
 
-    fn add_i_vx(&mut self, x: usize) {}
+    fn add_i_vx(&mut self, x: usize) {
+        self.i += self.v[x] as u16;
+    }
 
-    fn ld_f_vx(&mut self, x: usize) {}
+    fn ld_f_vx(&mut self, x: usize) {
+        unimplemented!();
+    }
 
-    fn ld_b_vx(&mut self, x: usize) {}
+    fn ld_b_vx(&mut self, x: usize) {
+        let i = self.i as usize;
+        self.memory[i] = self.v[x] % 10;
+        self.memory[i + 1] = self.v[x] / 10;
+        self.memory[i + 2] = self.v[x] / 100;
+    }
 
-    fn ld_i_vx(&mut self, x: usize) {}
+    fn ld_i_vx(&mut self, x: usize) {
+        for index in 0x0..0xF {
+            self.memory[(self.i + index) as usize] = self.v[index as usize];
+        }
+    }
 
-    fn ld_vx_i(&mut self, x: usize) {}
+    fn ld_vx_i(&mut self, x: usize) {
+        for index in 0x0..0xF {
+            self.v[index as usize] = self.memory[(self.i + index) as usize];
+        }
+    }
 }
 
 // Unit tests
