@@ -32,7 +32,8 @@ pub struct Emulator {
     stack: [u16; STACK_SIZE],
     // TODO: Set up keyboard bindings
     display: [[bool; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
-    // TODO: Sound & delay timers
+    // TODO: Sound & delay timers'
+    rng: rand::rngs::ThreadRng,
 }
 
 impl Emulator {
@@ -48,6 +49,7 @@ impl Emulator {
             stack_pointer: 0x0,
             stack: [0; STACK_SIZE],
             display: [[false; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+            rng: rand::thread_rng(),
         }
     }
 
