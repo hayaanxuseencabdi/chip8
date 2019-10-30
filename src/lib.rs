@@ -1,3 +1,5 @@
+use rand::Rng;
+
 pub const DISPLAY_HEIGHT: usize = 32;
 pub const DISPLAY_WIDTH: usize = 64;
 
@@ -32,7 +34,8 @@ pub struct Emulator {
     stack: [u16; STACK_SIZE],
     // TODO: Set up keyboard bindings
     display: [[bool; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
-    // TODO: Sound & delay timers'
+    sound_timer: u8,
+    delay_timer: u8,
     rng: rand::rngs::ThreadRng,
 }
 
@@ -49,6 +52,8 @@ impl Emulator {
             stack_pointer: 0x0,
             stack: [0; STACK_SIZE],
             display: [[false; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+            sound_timer: 0,
+            delay_timer: 0,
             rng: rand::thread_rng(),
         }
     }
@@ -192,11 +197,24 @@ impl Emulator {
     }
 
     fn rnd_vx_byte(&mut self, x: usize, kk: u8) {
-        unimplemented!();
+        unsafe {
+            let random_byte = self.rng.gen_range(0, 256) as u8;
+            self.v[x] = kk & random_byte;
+        }
     }
 
-    fn drw_vx_vy_nibble(&mut self, x: usize, y: usize) {
-        unimplemented!();
+    fn drw_vx_vy_nibble(&mut self, x: usize, y: usize, nibble: u8) {
+        self.v[0xF] = 0;
+        for byte in 0..nibble {
+            for pixel in 0..8 {
+                let row = usize::from(self.v[y] + byte) % 32;
+                let column = usize::from(self.v[x] + pixel) % 64;
+                let bit = (byte & (1 << (7 - pixel))) != 0;
+                // TODO: double check indexing
+                self.v[0xF] |= (self.display[row][column] && bit) as u8;
+                self.display[row][column] ^= bit;
+            }
+        }
     }
 
     fn skp_vx(&mut self, x: usize) {
@@ -208,7 +226,7 @@ impl Emulator {
     }
 
     fn ld_vx_dt(&mut self, x: usize) {
-        unimplemented!();
+        self.v[x] = self.delay_timer;
     }
 
     fn ld_vx_k(&mut self, x: usize) {
@@ -216,11 +234,11 @@ impl Emulator {
     }
 
     fn ld_dt_vx(&mut self, x: usize) {
-        unimplemented!();
+        self.delay_timer = self.v[x];
     }
 
     fn ld_st_vx(&mut self, x: usize) {
-        unimplemented!();
+        self.sound_timer = self.v[x];
     }
 
     fn add_i_vx(&mut self, x: usize) {
@@ -233,9 +251,9 @@ impl Emulator {
 
     fn ld_b_vx(&mut self, x: usize) {
         let i = self.i as usize;
-        self.memory[i] = self.v[x] % 10;
-        self.memory[i + 1] = self.v[x] / 10;
-        self.memory[i + 2] = self.v[x] / 100;
+        self.memory[i] = self.v[x] / 100;
+        self.memory[i + 1] = (self.v[x] / 10) % 10;
+        self.memory[i + 2] = self.v[x] % 10;
     }
 
     fn ld_i_vx(&mut self, x: usize) {
@@ -257,7 +275,7 @@ mod tests {
     use super::Emulator;
 
     #[test]
-    fn constructor() {
+    fn new() {
         let chip8 = Emulator::new();
 
         // Program counter
@@ -692,13 +710,19 @@ mod tests {
     }
 
     #[test]
-    fn ld_vx_dt() {}
+    fn ld_vx_dt() {
+        unimplemented!();
+    }
 
     #[test]
-    fn ld_dt_vx() {}
+    fn ld_dt_vx() {
+        unimplemented!();
+    }
 
     #[test]
-    fn ld_st_vx() {}
+    fn ld_st_vx() {
+        unimplemented!();
+    }
 
     #[test]
     fn add_i_vx() {
@@ -713,14 +737,31 @@ mod tests {
     }
 
     #[test]
-    fn ld_f_vx() {}
+    fn ld_f_vx() {
+        unimplemented!();
+    }
 
     #[test]
-    fn ld_b_vx() {}
+    fn ld_b_vx() {
+        let mut chip8 = Emulator::new();
+        let x: usize = 4;
+        chip8.v[x] = 241;
+        chip8.i = 4;
+
+        chip8.ld_b_vx(x);
+
+        assert_eq!(chip8.memory[chip8.i as usize], 2);
+        assert_eq!(chip8.memory[(chip8.i + 1) as usize], 4);
+        assert_eq!(chip8.memory[(chip8.i + 2) as usize], 1);
+    }
 
     #[test]
-    fn ld_i_vx() {}
+    fn ld_i_vx() {
+        unimplemented!();
+    }
 
     #[test]
-    fn ld_vx_i() {}
+    fn ld_vx_i() {
+        unimplemented!();
+    }
 }
