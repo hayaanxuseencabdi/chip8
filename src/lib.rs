@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::{rngs::ThreadRng, Rng};
 
 pub const DISPLAY_HEIGHT: usize = 32;
 pub const DISPLAY_WIDTH: usize = 64;
@@ -36,7 +36,7 @@ pub struct Emulator {
     display: [[bool; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     sound_timer: u8,
     delay_timer: u8,
-    rng: rand::rngs::ThreadRng,
+    rng: ThreadRng,
 }
 
 impl Emulator {
@@ -197,10 +197,8 @@ impl Emulator {
     }
 
     fn rnd_vx_byte(&mut self, x: usize, kk: u8) {
-        unsafe {
-            let random_byte = self.rng.gen_range(0, 256) as u8;
-            self.v[x] = kk & random_byte;
-        }
+        let random_byte = self.rng.gen_range(0, 256) as u8;
+        self.v[x] = kk & random_byte;
     }
 
     fn drw_vx_vy_nibble(&mut self, x: usize, y: usize, nibble: u8) {
