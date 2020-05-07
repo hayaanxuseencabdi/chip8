@@ -228,6 +228,7 @@ impl Emulator {
     }
 
     fn ld_vx_k(&mut self, x: usize) {
+        // Wait for a key to be pressed then store that value in self.v[x]
         unimplemented!();
     }
 
@@ -244,7 +245,7 @@ impl Emulator {
     }
 
     fn ld_f_vx(&mut self, x: usize) {
-        unimplemented!();
+        self.i = (5 * self.v[x]) as u16;
     }
 
     fn ld_b_vx(&mut self, x: usize) {
@@ -708,16 +709,19 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn ld_vx_dt() {
         unimplemented!();
     }
 
     #[test]
+    #[should_panic]
     fn ld_dt_vx() {
         unimplemented!();
     }
 
     #[test]
+    #[should_panic]
     fn ld_st_vx() {
         unimplemented!();
     }
@@ -735,6 +739,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn ld_f_vx() {
         unimplemented!();
     }
@@ -754,11 +759,13 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn ld_i_vx() {
         unimplemented!();
     }
 
     #[test]
+    #[should_panic]
     fn ld_vx_i() {
         unimplemented!();
     }
