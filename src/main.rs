@@ -1,7 +1,7 @@
 use crate::emulator::{Emulator, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
 use sdl2::{event::Event, keyboard::Keycode, pixels::Color, rect::Rect};
-use std::{thread, time::Duration};
+use std::{fs::File, io::Read, thread, time::Duration};
 
 mod emulator;
 
@@ -16,11 +16,16 @@ const MICROSECONDS_PER_FRAME: u64 = 1_000_000 / FRAMES_PER_SECOND;
 
 fn main() {
     let mut emulator = Emulator::new();
+    let mut file = File::open("tests/c8_test.c8").expect("Unable to open the ROM");
+    let mut rom = [0u8; 0xE00];
+    file.read(&mut rom).unwrap();
+    emulator.load(&rom);
+
     // Set up the SDL2 window
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
 
-    println!("Window dimensions: {}, {}", WINDOW_WIDTH, WINDOW_HEIGHT);
+    eprintln!("Window dimensions: {}, {}", WINDOW_WIDTH, WINDOW_HEIGHT);
 
     let window = video_subsystem
         .window("CHIP-8", WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)
@@ -31,8 +36,6 @@ fn main() {
     let mut canvas = window.into_canvas().build().unwrap();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
-    let mut x: i32 = 0;
-    let mut y: i32 = 0;
     canvas.set_draw_color(Color::BLACK);
     canvas.clear();
     canvas.present();
@@ -59,36 +62,6 @@ fn main() {
                     eprintln!("Key pressed: {}", key);
 
                     match key {
-                        Keycode::Right => {
-                            x = if x < WINDOW_WIDTH - PIXEL_WIDTH as i32 {
-                                x + PIXEL_WIDTH as i32
-                            } else {
-                                0
-                            };
-                        }
-                        Keycode::Left => {
-                            x = if x > 0 {
-                                x - PIXEL_WIDTH as i32
-                            } else {
-                                WINDOW_WIDTH - PIXEL_WIDTH as i32
-                            };
-                        }
-                        Keycode::Down => {
-                            y = if y < WINDOW_HEIGHT - PIXEL_HEIGHT as i32 {
-                                y + PIXEL_HEIGHT as i32
-                            } else {
-                                0
-                            };
-                        }
-                        Keycode::Up => {
-                            y = if y > 0 {
-                                y - PIXEL_HEIGHT as i32
-                            } else {
-                                WINDOW_HEIGHT - PIXEL_HEIGHT as i32
-                            };
-                        }
-
-                        // Key mapping
                         Keycode::Num1 => {
                             emulator.key_press(0x1);
                         }
@@ -214,12 +187,24 @@ fn main() {
             }
         }
 
-        // Game loop
-        let rectangle = Rect::new(x, y, PIXEL_WIDTH as u32, PIXEL_HEIGHT as u32);
-        canvas.set_draw_color(Color::MAGENTA);
-        canvas
-            .fill_rect(rectangle)
-            .expect("Failed to draw the rectangles");
+        emulator.instruction_cycle();
+        canvas.set_draw_color(Color::WHITE);
+
+        for x in 0..DISPLAY_WIDTH {
+            for y in 0..DISPLAY_HEIGHT {
+                if emulator.pixel_at(x, y) {
+                    let rectangle = Rect::new(
+                        (x * PIXEL_WIDTH) as i32,
+                        (y * PIXEL_HEIGHT) as i32,
+                        PIXEL_WIDTH as u32,
+                        PIXEL_HEIGHT as u32,
+                    );
+                    canvas
+                        .fill_rect(rectangle)
+                        .expect("Failed to draw the rectangles");
+                }
+            }
+        }
 
         canvas.present();
         // 60 FPS

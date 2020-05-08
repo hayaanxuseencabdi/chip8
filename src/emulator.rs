@@ -42,7 +42,7 @@ pub struct Emulator {
 impl Emulator {
     pub fn new() -> Self {
         let mut memory = [0; MEMORY_SIZE];
-        memory[..0x50].copy_from_slice(&SPRITES[..0x50]);
+        memory[..0x50].copy_from_slice(&SPRITES);
 
         Emulator {
             program_counter: 0x200,
@@ -63,14 +63,20 @@ impl Emulator {
         assert!(x < DISPLAY_WIDTH);
         assert!(y < DISPLAY_HEIGHT);
 
-        self.bitmap[DISPLAY_HEIGHT - y - 1][x]
+        // self.bitmap[DISPLAY_HEIGHT - y - 1][x]
+        self.bitmap[y][x]
+    }
+
+    pub fn load(&mut self, rom: &[u8; 0xE00]) {
+        self.memory[0x200..].copy_from_slice(rom);
     }
 
     /// The CHIP-8's fetch, decode, and execute instruction cycle.
     pub fn instruction_cycle(&mut self) {
-        let opcode: u16 = self.fetch(self.program_counter as usize);
+        let opcode: u16 = self.fetch(self.program_counter);
         self.program_counter += 2;
         self.decode_and_execute(opcode);
+        // self.dump_debug_info();
     }
 
     pub fn key_press(&mut self, key: usize) {
@@ -89,34 +95,32 @@ impl Emulator {
         self.keyboard[key] = false;
     }
 
-    fn fetch(&self, program_counter: usize) -> u16 {
+    fn fetch(&self, program_counter: u16) -> u16 {
+        let pc = program_counter as usize;
         // The instructions are stored big endian and are 16 bits large
-        let first_byte: u8 = self.memory[program_counter];
-        let second_byte: u8 = self.memory[program_counter + 1];
+        let first_byte: u8 = self.memory[pc];
+        let second_byte: u8 = self.memory[pc + 1];
 
         ((first_byte as u16) << 8) | (second_byte as u16)
     }
 
     fn decode_and_execute(&mut self, opcode: u16) {
         match opcode & 0xF000 {
-            0x000 => match opcode & 0x0F00 {
-                0x0000 => match opcode & 0x000F {
-                    0x0000 => {
-                        // 00E0 - CLS
-                        self.cls();
-                    }
-                    _ => {
-                        // 00EE - RET
-                        self.ret();
-                    }
-                },
+            0x000 => match opcode & 0x0FFF {
+                0x00E0 => {
+                    // 00E0 - CLS
+                    self.cls();
+                }
+                0x00EE => {
+                    // 00EE - RET
+                    self.ret();
+                }
                 _ => {
                     // 0nnn - SYS addr
                     let nnn = opcode & 0x0FFF;
                     self.sys_addr(opcode);
                 }
             },
-
             0x1000 => {
                 // 1nnn - JP addr
                 let nnn = opcode & 0x0FFF;
@@ -129,37 +133,44 @@ impl Emulator {
             }
             0x3000 => {
                 // 3xkk - SE Vx, byte
-                let x = (opcode & 0x0F00) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
                 let kk = (opcode & 0x00FF) as u8;
                 self.se_vx_byte(x, kk);
             }
             0x4000 => {
                 // 4xkk - SNE Vx, byte
-                let x = (opcode & 0x0F00) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
                 let kk = (opcode & 0x00FF) as u8;
                 self.sne_vx_byte(x, kk);
             }
             0x5000 => {
-                // 5xy0 - SE Vx, Vy
-                let x = (opcode & 0x0F00) as usize;
-                let y = (opcode & 0x00F0) as usize;
-                self.se_vx_vy(x, y);
+                match opcode & 0x000F {
+                    0x0000 => {
+                        // 5xy0 - SE Vx, Vy
+                        let x = (opcode & 0x0F00) as usize >> 8;
+                        let y = (opcode & 0x00F0) as usize >> 4;
+                        self.se_vx_vy(x, y);
+                    }
+                    _ => {
+                        panic!("Unrecognised opcode: {}", opcode);
+                    }
+                }
             }
             0x6000 => {
                 // 6xkk - LD Vx, byte
-                let x = (opcode & 0x0F00) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
                 let kk = (opcode & 0x00FF) as u8;
                 self.ld_vx_byte(x, kk);
             }
             0x7000 => {
                 // 7xkk - ADD Vx, byte
-                let x = (opcode & 0x0F00) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
                 let kk = (opcode & 0x00FF) as u8;
                 self.add_vx_byte(x, kk);
             }
             0x8000 => {
-                let x = (opcode & 0x0F00) as usize;
-                let y = (opcode & 0x00F0) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
+                let y = (opcode & 0x00F0) as usize >> 4;
                 match opcode & 0x000F {
                     0x0000 => {
                         // 8xy0 - LD Vx, Vy
@@ -206,8 +217,8 @@ impl Emulator {
                 match opcode & 0x000F {
                     0x0000 => {
                         // 9xy0 - SNE Vx, Vy
-                        let x = (opcode & 0x0F00) as usize;
-                        let y = (opcode & 0x00F0) as usize;
+                        let x = (opcode & 0x0F00) as usize >> 8;
+                        let y = (opcode & 0x00F0) as usize >> 4;
                         self.sne_vx_vy(x, y);
                     }
                     _ => {
@@ -227,19 +238,19 @@ impl Emulator {
             }
             0xC000 => {
                 // Cxkk - RND Vx, byte
-                let x = (opcode & 0x0F00) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
                 let kk = (opcode & 0x00FF) as u8;
                 self.rnd_vx_byte(x, kk);
             }
             0xD000 => {
                 // Dxyn - DRW Vx, Vy, nibble
-                let x = (opcode & 0x0F00) as usize;
-                let y = (opcode & 0x00F0) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
+                let y = (opcode & 0x00F0) as usize >> 4;
                 let nibble = (opcode & 0x000F) as u8;
                 self.drw_vx_vy_nibble(x, y, nibble);
             }
             0xE000 => {
-                let x = (opcode & 0x0F00) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
                 match opcode & 0x00FF {
                     0x009E => {
                         // Ex9E - SKP Vx
@@ -255,7 +266,7 @@ impl Emulator {
                 }
             }
             0xF000 => {
-                let x = (opcode & 0x0F00) as usize;
+                let x = (opcode & 0x0F00) as usize >> 8;
                 match opcode & 0x00FF {
                     0x0007 => {
                         // Fx07 - LD Vx, DT
@@ -291,6 +302,7 @@ impl Emulator {
                     }
                     0x0065 => {
                         // Fx65 - LD Vx, [I]}
+                        // FIXME(hayaanabdi): This is broken
                         self.ld_vx_i(x);
                     }
                     _ => {
@@ -302,6 +314,20 @@ impl Emulator {
                 panic!("Unrecognised opcode: {}", opcode);
             }
         };
+    }
+
+    fn dump_debug_info(&self) {
+        println!(
+            "Program counter: {} -> {:#06X}",
+            self.program_counter,
+            self.fetch(self.program_counter - 2)
+        );
+        for i in 0..V_SIZE {
+            println!("V[{:#X}]: {}", i, self.v[i]);
+        }
+
+        println!();
+        println!();
     }
 
     fn sys_addr(&mut self, nnn: u16) {
@@ -354,7 +380,8 @@ impl Emulator {
     }
 
     fn add_vx_byte(&mut self, x: usize, kk: u8) {
-        self.v[x] += kk;
+        let (sum, overflowed) = self.v[x].overflowing_add(kk);
+        self.v[x] = sum;
     }
 
     fn ld_vx_vy(&mut self, x: usize, y: usize) {
@@ -422,14 +449,15 @@ impl Emulator {
 
     fn drw_vx_vy_nibble(&mut self, x: usize, y: usize, nibble: u8) {
         self.v[0xF] = 0;
-        for byte in 0..nibble {
-            for pixel in 0..8 {
-                let row = usize::from(self.v[y] + byte) % 32;
-                let column = usize::from(self.v[x] + pixel) % 64;
-                let bit = (byte & (1 << (7 - pixel))) != 0;
-                // TODO: double check indexing
-                self.v[0xF] |= (self.bitmap[row][column] && bit) as u8;
-                self.bitmap[row][column] ^= bit;
+
+        for byte_index in 0..nibble {
+            let byte = self.memory[(self.i + byte_index as u16) as usize];
+            for pixel_index in 0..8 {
+                let row = (self.v[y] + byte_index) as usize % 32;
+                let col = (self.v[x] + pixel_index) as usize % 64;
+                let bit = byte & (1 << 7 - pixel_index) != 0;
+                self.v[0xF] |= (self.bitmap[row][col] && bit) as u8;
+                self.bitmap[row][col] ^= bit;
             }
         }
     }
@@ -484,14 +512,14 @@ impl Emulator {
     }
 
     fn ld_i_vx(&mut self, x: usize) {
-        for index in 0x0..0xF {
-            self.memory[(self.i + index) as usize] = self.v[index as usize];
+        for index in 0x0..x + 1 {
+            self.memory[self.i as usize + index] = self.v[index];
         }
     }
 
     fn ld_vx_i(&mut self, x: usize) {
-        for index in 0x0..0xF {
-            self.v[index as usize] = self.memory[(self.i + index) as usize];
+        for index in 0x0..x + 1 {
+            self.v[index] = self.memory[self.i as usize + index];
         }
     }
 }
