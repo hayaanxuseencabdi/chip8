@@ -32,8 +32,8 @@ pub struct Emulator {
     i: u16,
     stack_pointer: u8,
     stack: [u16; STACK_SIZE],
-    // TODO: Set up keyboard bindings
-    display: [[bool; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+    keyboard: [bool; 16],
+    bitmap: [[bool; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
     sound_timer: u8,
     delay_timer: u8,
     rng: ThreadRng,
@@ -51,7 +51,8 @@ impl Emulator {
             v: [0; V_SIZE],
             stack_pointer: 0x0,
             stack: [0; STACK_SIZE],
-            display: [[false; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
+            keyboard: [false; 16],
+            bitmap: [[false; DISPLAY_WIDTH]; DISPLAY_HEIGHT],
             sound_timer: 0,
             delay_timer: 0,
             rng: rand::thread_rng(),
@@ -62,7 +63,7 @@ impl Emulator {
         assert!(x < DISPLAY_WIDTH);
         assert!(y < DISPLAY_HEIGHT);
 
-        self.display[DISPLAY_HEIGHT - y - 1][x]
+        self.bitmap[DISPLAY_HEIGHT - y - 1][x]
     }
 
     /// The CHIP-8's fetch, decode, and execute instruction cycle.
@@ -70,6 +71,22 @@ impl Emulator {
         let opcode: u16 = self.fetch(self.program_counter as usize);
         self.program_counter += 2;
         self.decode_and_execute(opcode);
+    }
+
+    pub fn key_press(&mut self, key: usize) {
+        assert!(
+            self.keyboard.iter().all(|key| !*key),
+            "Multiple simultaneous key presses registered"
+        );
+        self.keyboard[key] = true;
+    }
+
+    pub fn key_release(&mut self, key: usize) {
+        assert!(
+            self.keyboard[key],
+            "Attempting to release a key that wasn't registered as pressed"
+        );
+        self.keyboard[key] = false;
     }
 
     fn fetch(&self, program_counter: usize) -> u16 {
@@ -90,7 +107,7 @@ impl Emulator {
     }
 
     fn cls(&mut self) {
-        for row in self.display.iter_mut() {
+        for row in self.bitmap.iter_mut() {
             for pixel in row.iter_mut() {
                 *pixel = false;
             }
@@ -168,7 +185,7 @@ impl Emulator {
 
     fn shr_vx(&mut self, x: usize) {
         self.v[0xF] = self.v[x] & 0b0000_0001;
-        self.v[x] = self.v[x] >> 1;
+        self.v[x] >>= 1;
     }
 
     fn subn_vx_vy(&mut self, x: usize, y: usize) {
@@ -179,7 +196,7 @@ impl Emulator {
 
     fn shl_vx(&mut self, x: usize) {
         self.v[0xF] = (self.v[x] & 0b1000_0000) >> 7;
-        self.v[x] = self.v[x] << 1;
+        self.v[x] <<= 1;
     }
 
     fn sne_vx_vy(&mut self, x: usize, y: usize) {
@@ -209,18 +226,18 @@ impl Emulator {
                 let column = usize::from(self.v[x] + pixel) % 64;
                 let bit = (byte & (1 << (7 - pixel))) != 0;
                 // TODO: double check indexing
-                self.v[0xF] |= (self.display[row][column] && bit) as u8;
-                self.display[row][column] ^= bit;
+                self.v[0xF] |= (self.bitmap[row][column] && bit) as u8;
+                self.bitmap[row][column] ^= bit;
             }
         }
     }
 
     fn skp_vx(&mut self, x: usize) {
-        unimplemented!();
+        self.program_counter += if self.keyboard[x] { 2 } else { 0 }
     }
 
     fn sknp_vx(&mut self, x: usize) {
-        unimplemented!();
+        self.program_counter += if self.keyboard[x] { 0 } else { 2 }
     }
 
     fn ld_vx_dt(&mut self, x: usize) {
@@ -228,8 +245,17 @@ impl Emulator {
     }
 
     fn ld_vx_k(&mut self, x: usize) {
-        // Wait for a key to be pressed then store that value in self.v[x]
-        unimplemented!();
+        // If no key is pressed at the moment, decrement the PC by two to stay at the same instruction.
+        self.program_counter -= if self.keyboard.iter().any(|key| *key) {
+            for i in 0..self.keyboard.len() {
+                if self.keyboard[i] {
+                    self.v[0xF] = i as u8;
+                }
+            }
+            0
+        } else {
+            -2
+        };
     }
 
     fn ld_dt_vx(&mut self, x: usize) {
@@ -285,8 +311,8 @@ mod tests {
         );
         // Memory
         assert_eq!(chip8.memory.len(), 4096);
-        assert_eq!(chip8.display.len(), 32);
-        assert_eq!(chip8.display[0].len(), 64);
+        assert_eq!(chip8.bitmap.len(), 32);
+        assert_eq!(chip8.bitmap[0].len(), 64);
         // I
         assert_eq!(chip8.i, 0);
         // V
@@ -319,7 +345,7 @@ mod tests {
     #[test]
     fn cls() {
         let mut chip8 = Emulator::new();
-        for row in chip8.display.iter_mut() {
+        for row in chip8.bitmap.iter_mut() {
             for pixel in row.iter_mut() {
                 *pixel = true;
             }
@@ -328,7 +354,7 @@ mod tests {
         chip8.cls();
 
         assert!(chip8
-            .display
+            .bitmap
             .iter()
             .all(|&row| row.iter().all(|&pixel| !pixel)));
     }
@@ -709,19 +735,16 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn ld_vx_dt() {
         unimplemented!();
     }
 
     #[test]
-    #[should_panic]
     fn ld_dt_vx() {
         unimplemented!();
     }
 
     #[test]
-    #[should_panic]
     fn ld_st_vx() {
         unimplemented!();
     }
@@ -739,7 +762,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn ld_f_vx() {
         unimplemented!();
     }
@@ -759,13 +781,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn ld_i_vx() {
         unimplemented!();
     }
 
     #[test]
-    #[should_panic]
     fn ld_vx_i() {
         unimplemented!();
     }
