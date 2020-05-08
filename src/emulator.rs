@@ -98,8 +98,210 @@ impl Emulator {
     }
 
     fn decode_and_execute(&mut self, opcode: u16) {
-        // TODO: Match opcode to instruction
-        // TODO: Make sure to log the instruction & the values it's called with
+        match opcode & 0xF000 {
+            0x000 => match opcode & 0x0F00 {
+                0x0000 => match opcode & 0x000F {
+                    0x0000 => {
+                        // 00E0 - CLS
+                        self.cls();
+                    }
+                    _ => {
+                        // 00EE - RET
+                        self.ret();
+                    }
+                },
+                _ => {
+                    // 0nnn - SYS addr
+                    let nnn = opcode & 0x0FFF;
+                    self.sys_addr(opcode);
+                }
+            },
+
+            0x1000 => {
+                // 1nnn - JP addr
+                let nnn = opcode & 0x0FFF;
+                self.jp_addr(nnn);
+            }
+            0x2000 => {
+                // 2nnn - CALL addr
+                let nnn = opcode & 0x0FFF;
+                self.call_addr(nnn);
+            }
+            0x3000 => {
+                // 3xkk - SE Vx, byte
+                let x = (opcode & 0x0F00) as usize;
+                let kk = (opcode & 0x00FF) as u8;
+                self.se_vx_byte(x, kk);
+            }
+            0x4000 => {
+                // 4xkk - SNE Vx, byte
+                let x = (opcode & 0x0F00) as usize;
+                let kk = (opcode & 0x00FF) as u8;
+                self.sne_vx_byte(x, kk);
+            }
+            0x5000 => {
+                // 5xy0 - SE Vx, Vy
+                let x = (opcode & 0x0F00) as usize;
+                let y = (opcode & 0x00F0) as usize;
+                self.se_vx_vy(x, y);
+            }
+            0x6000 => {
+                // 6xkk - LD Vx, byte
+                let x = (opcode & 0x0F00) as usize;
+                let kk = (opcode & 0x00FF) as u8;
+                self.ld_vx_byte(x, kk);
+            }
+            0x7000 => {
+                // 7xkk - ADD Vx, byte
+                let x = (opcode & 0x0F00) as usize;
+                let kk = (opcode & 0x00FF) as u8;
+                self.add_vx_byte(x, kk);
+            }
+            0x8000 => {
+                let x = (opcode & 0x0F00) as usize;
+                let y = (opcode & 0x00F0) as usize;
+                match opcode & 0x000F {
+                    0x0000 => {
+                        // 8xy0 - LD Vx, Vy
+                        self.ld_vx_vy(x, y);
+                    }
+                    0x0001 => {
+                        // 8xy1 - OR Vx, Vy
+                        self.or_vx_vy(x, y);
+                    }
+                    0x0002 => {
+                        // 8xy2 - AND Vx, Vy
+                        self.and_vx_vy(x, y);
+                    }
+                    0x0003 => {
+                        // 8xy3 - XOR Vx, Vy
+                        self.xor_vx_vy(x, y);
+                    }
+                    0x0004 => {
+                        // 8xy4 - ADD Vx, Vy
+                        self.add_vx_vy(x, y);
+                    }
+                    0x0005 => {
+                        // 8xy5 - SUB Vx, Vy
+                        self.sub_vx_vy(x, y);
+                    }
+                    0x0006 => {
+                        // 8xy6 - SHR Vx {, Vy}
+                        self.shr_vx(x);
+                    }
+                    0x0007 => {
+                        // 8xy7 - SUBN Vx, Vy
+                        self.subn_vx_vy(x, y);
+                    }
+                    0x000E => {
+                        // 8xyE - SHL Vx {, Vy}
+                        self.shl_vx(x);
+                    }
+                    _ => {
+                        panic!("Unrecognised opcode: {}", opcode);
+                    }
+                }
+            }
+            0x9000 => {
+                match opcode & 0x000F {
+                    0x0000 => {
+                        // 9xy0 - SNE Vx, Vy
+                        let x = (opcode & 0x0F00) as usize;
+                        let y = (opcode & 0x00F0) as usize;
+                        self.sne_vx_vy(x, y);
+                    }
+                    _ => {
+                        panic!("Unrecognised opcode: {}", opcode);
+                    }
+                }
+            }
+            0xA000 => {
+                // Annn - LD I, addr
+                let nnn = opcode & 0x0FFF;
+                self.ld_i_addr(nnn);
+            }
+            0xB000 => {
+                // Bnnn - JP V0, addr
+                let nnn = opcode & 0x0FFF;
+                self.jp_v0_addr(nnn);
+            }
+            0xC000 => {
+                // Cxkk - RND Vx, byte
+                let x = (opcode & 0x0F00) as usize;
+                let kk = (opcode & 0x00FF) as u8;
+                self.rnd_vx_byte(x, kk);
+            }
+            0xD000 => {
+                // Dxyn - DRW Vx, Vy, nibble
+                let x = (opcode & 0x0F00) as usize;
+                let y = (opcode & 0x00F0) as usize;
+                let nibble = (opcode & 0x000F) as u8;
+                self.drw_vx_vy_nibble(x, y, nibble);
+            }
+            0xE000 => {
+                let x = (opcode & 0x0F00) as usize;
+                match opcode & 0x00FF {
+                    0x009E => {
+                        // Ex9E - SKP Vx
+                        self.skp_vx(x);
+                    }
+                    0x00A1 => {
+                        // ExA1 - SKNP Vx
+                        self.sknp_vx(x);
+                    }
+                    _ => {
+                        panic!("Unrecognised opcode: {}", opcode);
+                    }
+                }
+            }
+            0xF000 => {
+                let x = (opcode & 0x0F00) as usize;
+                match opcode & 0x00FF {
+                    0x0007 => {
+                        // Fx07 - LD Vx, DT
+                        self.ld_vx_dt(x);
+                    }
+                    0x000A => {
+                        // Fx0A - LD Vx, K
+                        self.ld_vx_k(x);
+                    }
+                    0x0015 => {
+                        // Fx15 - LD DT, Vx}
+                        self.ld_dt_vx(x);
+                    }
+                    0x0018 => {
+                        // Fx18 - LD ST, Vx}
+                        self.ld_st_vx(x);
+                    }
+                    0x001E => {
+                        // Fx1E - ADD I, Vx}
+                        self.add_i_vx(x);
+                    }
+                    0x0029 => {
+                        // Fx29 - LD F, Vx}
+                        self.ld_f_vx(x);
+                    }
+                    0x0033 => {
+                        // Fx33 - LD B, Vx}
+                        self.ld_b_vx(x);
+                    }
+                    0x0055 => {
+                        // Fx55 - LD [I], Vx}
+                        self.ld_i_vx(x);
+                    }
+                    0x0065 => {
+                        // Fx65 - LD Vx, [I]}
+                        self.ld_vx_i(x);
+                    }
+                    _ => {
+                        panic!("Unrecognised opcode: {}", opcode);
+                    }
+                }
+            }
+            _ => {
+                panic!("Unrecognised opcode: {}", opcode);
+            }
+        };
     }
 
     fn sys_addr(&mut self, nnn: u16) {
@@ -254,7 +456,7 @@ impl Emulator {
             }
             0
         } else {
-            -2
+            2
         };
     }
 
