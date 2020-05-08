@@ -1,4 +1,4 @@
-use crate::emulator::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
+use crate::emulator::{Emulator, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
 use sdl2::{event::Event, keyboard::Keycode, pixels::Color, rect::Rect};
 use std::{thread, time::Duration};
@@ -15,6 +15,7 @@ const FRAMES_PER_SECOND: u64 = 60;
 const MICROSECONDS_PER_FRAME: u64 = 1_000_000 / FRAMES_PER_SECOND;
 
 fn main() {
+    let mut emulator = Emulator::new();
     // Set up the SDL2 window
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -56,6 +57,7 @@ fn main() {
 
                     let key = keycode.expect("No key in keycode on KeyDown event");
                     eprintln!("Key pressed: {}", key);
+
                     match key {
                         Keycode::Right => {
                             x = if x < WINDOW_WIDTH - PIXEL_WIDTH as i32 {
@@ -85,10 +87,129 @@ fn main() {
                                 WINDOW_HEIGHT - PIXEL_HEIGHT as i32
                             };
                         }
+
+                        // Key mapping
+                        Keycode::Num1 => {
+                            emulator.key_press(0x1);
+                        }
+                        Keycode::Num2 => {
+                            emulator.key_press(0x2);
+                        }
+                        Keycode::Num3 => {
+                            emulator.key_press(0x3);
+                        }
+                        Keycode::Num4 => {
+                            emulator.key_press(0xC);
+                        }
+
+                        Keycode::Q => {
+                            emulator.key_press(0x4);
+                        }
+                        Keycode::W => {
+                            emulator.key_press(0x5);
+                        }
+                        Keycode::E => {
+                            emulator.key_press(0x6);
+                        }
+                        Keycode::R => {
+                            emulator.key_press(0xD);
+                        }
+
+                        Keycode::A => {
+                            emulator.key_press(0x7);
+                        }
+                        Keycode::S => {
+                            emulator.key_press(0x8);
+                        }
+                        Keycode::D => {
+                            emulator.key_press(0x9);
+                        }
+                        Keycode::F => {
+                            emulator.key_press(0xE);
+                        }
+
+                        Keycode::Z => {
+                            emulator.key_press(0xA);
+                        }
+                        Keycode::X => {
+                            emulator.key_press(0x0);
+                        }
+                        Keycode::C => {
+                            emulator.key_press(0xB);
+                        }
+                        Keycode::V => {
+                            emulator.key_press(0xF);
+                        }
+
                         _ => {}
                     };
                 }
-                Event::KeyUp { .. } => { /* unpress key */ }
+                Event::KeyUp {
+                    repeat, keycode, ..
+                } => {
+                    if repeat {
+                        continue;
+                    }
+
+                    let key = keycode.expect("No key in keycode on KeyUp event");
+                    eprintln!("Key released: {}", key);
+
+                    match key {
+                        Keycode::Num1 => {
+                            emulator.key_release(0x1);
+                        }
+                        Keycode::Num2 => {
+                            emulator.key_release(0x2);
+                        }
+                        Keycode::Num3 => {
+                            emulator.key_release(0x3);
+                        }
+                        Keycode::Num4 => {
+                            emulator.key_release(0xC);
+                        }
+
+                        Keycode::Q => {
+                            emulator.key_release(0x4);
+                        }
+                        Keycode::W => {
+                            emulator.key_release(0x5);
+                        }
+                        Keycode::E => {
+                            emulator.key_release(0x6);
+                        }
+                        Keycode::R => {
+                            emulator.key_release(0xD);
+                        }
+
+                        Keycode::A => {
+                            emulator.key_release(0x7);
+                        }
+                        Keycode::S => {
+                            emulator.key_release(0x8);
+                        }
+                        Keycode::D => {
+                            emulator.key_release(0x9);
+                        }
+                        Keycode::F => {
+                            emulator.key_release(0xE);
+                        }
+
+                        Keycode::Z => {
+                            emulator.key_release(0xA);
+                        }
+                        Keycode::X => {
+                            emulator.key_release(0x0);
+                        }
+                        Keycode::C => {
+                            emulator.key_release(0xB);
+                        }
+                        Keycode::V => {
+                            emulator.key_release(0xF);
+                        }
+
+                        _ => {}
+                    }
+                }
                 _ => {}
             }
         }
