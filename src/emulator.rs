@@ -449,7 +449,7 @@ impl Emulator {
             for pixel_index in 0..8 {
                 let row = (self.v[y] + byte_index) as usize % 32;
                 let col = (self.v[x] + pixel_index) as usize % 64;
-                let bit = byte & (1 << 7 - pixel_index) != 0;
+                let bit = byte & (1 << (7 - pixel_index)) != 0;
                 self.v[0xF] |= (self.bitmap[row][col] && bit) as u8;
                 self.bitmap[row][col] ^= bit;
             }
