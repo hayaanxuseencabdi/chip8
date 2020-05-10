@@ -80,10 +80,6 @@ impl Emulator {
     }
 
     pub fn key_press(&mut self, key: usize) {
-        assert!(
-            self.keyboard.iter().all(|key| !*key),
-            "Multiple simultaneous key presses registered"
-        );
         self.keyboard[key] = true;
     }
 
@@ -118,7 +114,7 @@ impl Emulator {
                 _ => {
                     // 0nnn - SYS addr
                     let nnn = opcode & 0x0FFF;
-                    self.sys_addr(opcode);
+                    self.sys_addr(nnn);
                 }
             },
             0x1000 => {
@@ -302,7 +298,6 @@ impl Emulator {
                     }
                     0x0065 => {
                         // Fx65 - LD Vx, [I]}
-                        // FIXME(hayaanabdi): This is broken
                         self.ld_vx_i(x);
                     }
                     _ => {
@@ -319,7 +314,7 @@ impl Emulator {
     fn dump_debug_info(&self) {
         println!(
             "Program counter: {} -> {:#06X}",
-            self.program_counter,
+            self.program_counter - 2,
             self.fetch(self.program_counter - 2)
         );
         for i in 0..V_SIZE {
@@ -330,7 +325,7 @@ impl Emulator {
         println!();
     }
 
-    fn sys_addr(&mut self, nnn: u16) {
+    fn sys_addr(&mut self, _nnn: u16) {
         unimplemented!("The instruction [0nnn - SYS addr] has not been implemented.");
     }
 
@@ -380,8 +375,7 @@ impl Emulator {
     }
 
     fn add_vx_byte(&mut self, x: usize, kk: u8) {
-        let (sum, overflowed) = self.v[x].overflowing_add(kk);
-        self.v[x] = sum;
+        self.v[x] = self.v[x].overflowing_add(kk).0;
     }
 
     fn ld_vx_vy(&mut self, x: usize, y: usize) {
@@ -477,9 +471,9 @@ impl Emulator {
     fn ld_vx_k(&mut self, x: usize) {
         // If no key is pressed at the moment, decrement the PC by two to stay at the same instruction.
         self.program_counter -= if self.keyboard.iter().any(|key| *key) {
-            for i in 0..self.keyboard.len() {
-                if self.keyboard[i] {
-                    self.v[0xF] = i as u8;
+            for (key, &key_is_pressed) in self.keyboard.iter().enumerate() {
+                if key_is_pressed {
+                    self.v[x] = key as u8;
                 }
             }
             0
@@ -518,7 +512,7 @@ impl Emulator {
     }
 
     fn ld_vx_i(&mut self, x: usize) {
-        for index in 0x0..x + 1 {
+        for index in 0..x + 1 {
             self.v[index] = self.memory[self.i as usize + index];
         }
     }
