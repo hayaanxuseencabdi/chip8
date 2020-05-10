@@ -1,22 +1,23 @@
 use crate::emulator::{Emulator, DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
 use sdl2::{event::Event, keyboard::Keycode, pixels::Color, rect::Rect};
-use std::{fs::File, io::Read, thread, time::Duration};
+use std::{fs::File, io::Read, thread, time::Duration, env};
 
 mod emulator;
 
-const PIXEL_WIDTH: usize = 25;
-const PIXEL_HEIGHT: usize = 25;
+const PIXEL_WIDTH: usize = 20;
+const PIXEL_HEIGHT: usize = 20;
 
 const WINDOW_WIDTH: i32 = (PIXEL_WIDTH * DISPLAY_WIDTH) as i32;
 const WINDOW_HEIGHT: i32 = (PIXEL_HEIGHT * DISPLAY_HEIGHT) as i32;
 
-const FRAMES_PER_SECOND: u64 = 60;
+const FRAMES_PER_SECOND: u64 = 600;
 const MICROSECONDS_PER_FRAME: u64 = 1_000_000 / FRAMES_PER_SECOND;
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
     let mut emulator = Emulator::new();
-    let mut file = File::open("tests/c8_test.c8").expect("Unable to open the ROM");
+    let mut file = File::open(&args[1]).expect("Unable to open the ROM");
     let mut rom = [0u8; 0xE00];
     file.read(&mut rom).unwrap();
     emulator.load(&rom);
