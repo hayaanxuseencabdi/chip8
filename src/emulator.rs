@@ -1,4 +1,33 @@
-use rand::{rngs::ThreadRng, Rng};
+use std::{
+    thread,
+    time::Duration,
+};
+use rand::{
+    rngs::ThreadRng,
+    Rng,
+};
+use sdl2::{
+    event::Event,
+    keyboard::Keycode,
+    pixels::Color,
+    rect::Rect,
+};
+
+
+// Display constants
+
+const PIXEL_WIDTH: usize = 20;
+const PIXEL_HEIGHT: usize = 20;
+
+const WINDOW_WIDTH: i32 = (PIXEL_WIDTH * DISPLAY_WIDTH) as i32;
+const WINDOW_HEIGHT: i32 = (PIXEL_HEIGHT * DISPLAY_HEIGHT) as i32;
+
+const TICKS_PER_SECOND: u64 = 60;
+const MICROSECONDS_PER_FRAME: u64 = 1_000_000 / TICKS_PER_SECOND / FRAMES_PER_TICK;
+// Undocumented assumption that the emulator's FPS will be above than 60.
+const FRAMES_PER_TICK: u64 = 10;
+
+// Emulator constants
 
 pub const DISPLAY_HEIGHT: usize = 32;
 pub const DISPLAY_WIDTH: usize = 64;
@@ -37,6 +66,7 @@ pub struct Emulator {
     sound_timer: u8,
     delay_timer: u8,
     rng: ThreadRng,
+    is_paused: bool,
 }
 
 impl Emulator {
@@ -56,14 +86,219 @@ impl Emulator {
             sound_timer: 0,
             delay_timer: 0,
             rng: rand::thread_rng(),
+            is_paused: false,
+        }
+    }
+
+    pub fn run(&mut self) {
+        // Set up the SDL2 window
+        let sdl_context = sdl2::init().unwrap();
+        let video_subsystem = sdl_context.video().unwrap();
+
+        eprintln!("Window dimensions: {}, {}", WINDOW_WIDTH, WINDOW_HEIGHT);
+
+        let window = video_subsystem
+            .window("CHIP-8", WINDOW_WIDTH as u32, WINDOW_HEIGHT as u32)
+            .position_centered()
+            .build()
+            .unwrap();
+
+        let mut canvas = window.into_canvas().build().unwrap();
+        let mut event_pump = sdl_context.event_pump().unwrap();
+        let mut remaining_frames = FRAMES_PER_TICK;
+        canvas.set_draw_color(Color::BLACK);
+        canvas.clear();
+        canvas.present();
+        'running: loop {
+            canvas.set_draw_color(Color::BLACK);
+            canvas.clear();
+
+            // Handle input
+            for event in event_pump.poll_iter() {
+                match event {
+                    Event::Quit { .. } => {
+                        break 'running;
+                    }
+                    Event::AppDidEnterBackground { .. } => {
+                        self.pause();
+                    }
+                    Event::AppDidEnterForeground { .. } => {
+                        self.resume();
+                    }
+                    Event::KeyDown {
+                        repeat, keycode, ..
+                    } => {
+                        if repeat {
+                            continue;
+                        }
+
+                        let key = keycode.expect("No key in keycode on KeyDown event");
+                        eprintln!("Key pressed: {}", key);
+
+                        match key {
+                            Keycode::Num1 => {
+                                self.key_press(0x1);
+                            }
+                            Keycode::Num2 => {
+                                self.key_press(0x2);
+                            }
+                            Keycode::Num3 => {
+                                self.key_press(0x3);
+                            }
+                            Keycode::Num4 => {
+                                self.key_press(0xC);
+                            }
+
+                            Keycode::Q => {
+                                self.key_press(0x4);
+                            }
+                            Keycode::W => {
+                                self.key_press(0x5);
+                            }
+                            Keycode::E => {
+                                self.key_press(0x6);
+                            }
+                            Keycode::R => {
+                                self.key_press(0xD);
+                            }
+
+                            Keycode::A => {
+                                self.key_press(0x7);
+                            }
+                            Keycode::S => {
+                                self.key_press(0x8);
+                            }
+                            Keycode::D => {
+                                self.key_press(0x9);
+                            }
+                            Keycode::F => {
+                                self.key_press(0xE);
+                            }
+
+                            Keycode::Z => {
+                                self.key_press(0xA);
+                            }
+                            Keycode::X => {
+                                self.key_press(0x0);
+                            }
+                            Keycode::C => {
+                                self.key_press(0xB);
+                            }
+                            Keycode::V => {
+                                self.key_press(0xF);
+                            }
+
+                            _ => {}
+                        };
+                    }
+                    Event::KeyUp {
+                        repeat, keycode, ..
+                    } => {
+                        if repeat {
+                            continue;
+                        }
+
+                        let key = keycode.expect("No key in keycode on KeyUp event");
+                        eprintln!("Key released: {}", key);
+
+                        match key {
+                            Keycode::Num1 => {
+                                self.key_release(0x1);
+                            }
+                            Keycode::Num2 => {
+                                self.key_release(0x2);
+                            }
+                            Keycode::Num3 => {
+                                self.key_release(0x3);
+                            }
+                            Keycode::Num4 => {
+                                self.key_release(0xC);
+                            }
+
+                            Keycode::Q => {
+                                self.key_release(0x4);
+                            }
+                            Keycode::W => {
+                                self.key_release(0x5);
+                            }
+                            Keycode::E => {
+                                self.key_release(0x6);
+                            }
+                            Keycode::R => {
+                                self.key_release(0xD);
+                            }
+
+                            Keycode::A => {
+                                self.key_release(0x7);
+                            }
+                            Keycode::S => {
+                                self.key_release(0x8);
+                            }
+                            Keycode::D => {
+                                self.key_release(0x9);
+                            }
+                            Keycode::F => {
+                                self.key_release(0xE);
+                            }
+
+                            Keycode::Z => {
+                                self.key_release(0xA);
+                            }
+                            Keycode::X => {
+                                self.key_release(0x0);
+                            }
+                            Keycode::C => {
+                                self.key_release(0xB);
+                            }
+                            Keycode::V => {
+                                self.key_release(0xF);
+                            }
+
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            if self.is_paused {
+                continue;
+            }
+
+            self.instruction_cycle();
+            canvas.set_draw_color(Color::WHITE);
+
+            for x in 0..DISPLAY_WIDTH {
+                for y in 0..DISPLAY_HEIGHT {
+                    if self.pixel_at(x, y) {
+                        canvas
+                            .fill_rect(Rect::new(
+                                (x * PIXEL_WIDTH) as i32,
+                                (y * PIXEL_HEIGHT) as i32,
+                                PIXEL_WIDTH as u32,
+                                PIXEL_HEIGHT as u32,
+                            ))
+                            .expect("Failed to draw the rectangles");
+                    }
+                }
+            }
+
+            canvas.present();
+            // 60 FPS
+            thread::sleep(Duration::from_micros(MICROSECONDS_PER_FRAME));
+            // Tick
+            remaining_frames -= 1;
+            if remaining_frames == 0 {
+                self.tick();
+                remaining_frames = FRAMES_PER_TICK;
+            }
         }
     }
 
     pub fn pixel_at(&self, x: usize, y: usize) -> bool {
-        assert!(x < DISPLAY_WIDTH);
         assert!(y < DISPLAY_HEIGHT);
+        assert!(x < DISPLAY_WIDTH);
 
-        // self.bitmap[DISPLAY_HEIGHT - y - 1][x]
         self.bitmap[y][x]
     }
 
@@ -89,6 +324,23 @@ impl Emulator {
             "Attempting to release a key that wasn't registered as pressed"
         );
         self.keyboard[key] = false;
+    }
+
+    pub fn pause(&mut self) {
+        self.is_paused = true;
+    }
+
+    pub fn resume(&mut self) {
+        self.is_paused = false;
+    }
+
+    pub fn tick(&mut self) {
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
     }
 
     fn fetch(&self, program_counter: u16) -> u16 {
